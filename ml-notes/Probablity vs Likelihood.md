@@ -1,6 +1,8 @@
 Probablity vs Likelihood
 
-Probability attaches to possible results; likelihood attaches to hypotheses
+Probability attaches to possible results.
+
+Likelihood attaches to hypotheses.
 
 Hypotheses, unlike results, are neither mutually exclusive nor exhaustive.
 
