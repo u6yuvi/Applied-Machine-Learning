@@ -60,10 +60,7 @@
 
 **Gantt Chart to set deliverable timelines.**
 
-![image-20220809232404751](/home/uv/.config/Typora/typora-user-images/image-20220809232404751.png)
-
-
-
-
+![image-20220809233408108](image-20220809233408108.png)
 
 [Refer the link for the updated sheet](https://docs.google.com/spreadsheets/d/1jJLCbOHl6joBpvfRjaQUWS_DUUoG1vInC4DYnH4abds/edit?usp=sharing)
+
