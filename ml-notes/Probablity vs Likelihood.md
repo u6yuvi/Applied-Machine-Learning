@@ -1,5 +1,11 @@
 Probablity vs Likelihood
 
+
+
+Probabiliy  (P(data/distribution))- Area under the fixed distribution
+
+Likelihood ( L(distribution/data)- Y axis value for fixed data points with distribution that can be moved .
+
 Probability attaches to possible results.
 
 Likelihood attaches to hypotheses.
