@@ -176,6 +176,22 @@ Continuous Batching (swapping requests in and out the exact millisecond they fin
 - Too large (e.g., 256): You get Internal Fragmentation again. If a generation stops at 257 tokens, you waste 255 spaces in the second block.
 - Too small (e.g., 1): The Block Table becomes massive, and the GPU wastes too much time doing memory lookups instead of math. 16 to 32 is the sweet spot.
 
+### 5.4 Practitioner: vLLM Hyperparameters When Deploying a Model
+
+When deploying a model on vLLM (KV cache, PagedAttention, continuous batching), tune these hyperparameters:
+
+| Hyperparameter | What to try | Why it matters |
+| --- | --- | --- |
+| **--max-model-len** | Match your use case (e.g. 4k, 8k, 32k, 128k). Start lower if OOM. | Caps max sequence length and reserves KV cache memory. Higher = more VRAM for cache, fewer concurrent requests. |
+| **--gpu-memory-utilization** | Default 0.90. Lower to 0.85–0.88 if OOM; can push 0.92–0.95 if stable. | Fraction of VRAM used for KV cache + model. Too high → OOM on long context or large batches. |
+| **--block-size** | 16 or 32 (default 16). Align with hardware (e.g. 128-bit). | PagedAttention block size. Larger blocks = less block-table overhead, more internal fragmentation. |
+| **--dtype** | bfloat16 (safest), float16, or auto. FP8 on H100/B200 for throughput. | KV cache and compute precision. BF16 avoids overflow; FP8 reduces cache size and bandwidth (decode-bound). |
+| **--max-num-seqs** | 1–256+. Increase for higher throughput; decrease if OOM or high latency. | Max concurrent sequences in a batch. Drives continuous batching and KV cache usage. |
+| **--enable-prefix-caching** | True when you have repeated system/prompt prefixes. | Reuses KV cache for shared prefix → lower TTFT and prefill cost. |
+| **--enforce-eager** | False (default); True to disable CUDA graphs for debugging. | When True, no CUDA graph capture (slower but easier to debug). |
+| **--tensor-parallel-size** | 1 (single GPU), 2, 4, 8 for multi-GPU. | Shards model and KV cache across GPUs for large models or longer context. |
+
+**Quick checklist:** If you hit OOM, try lowering `--gpu-memory-utilization` or `--max-model-len`, or enable `--enable-chunked-prefill` (splits prefill into chunks). For higher throughput, increase `--max-num-seqs` and ensure Flash Attention (or equivalent) is enabled.
 
 ---
 
