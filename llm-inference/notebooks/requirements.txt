@@ -1,0 +1,9 @@
+# LLM Inference notebooks (7-day plan)
+# For AMD MI250X use: pip install vllm (ROCm); for NVIDIA use same, vLLM picks CUDA.
+
+vllm>=0.4.0
+torch>=2.0.0
+transformers>=4.36.0
+matplotlib>=3.5.0
+numpy>=1.24.0
+tqdm>=4.65.0
