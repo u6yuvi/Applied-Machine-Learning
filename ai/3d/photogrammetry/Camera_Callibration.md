@@ -175,3 +175,77 @@ This is a **non-linear** refinement beyond the ideal pinhole + affine model:
 
 4. **“How many numbers in $R$ vs. three Euler angles?”**  
    *Answer:* $R$ has **nine** entries but only **three degrees of freedom**; the orthonormality constraints (**length and perpendicularity**) remove the extra six. Parameter counting must respect those constraints when interpreting covariance or priors.
+
+
+
+**How do we actually find the Intrinsic matrix ($K$)?** (Calibration) and **How do we find the Camera's position if we already know $K$?** (Localization).
+
+
+# Camera Calibration (Zhang’s Method)
+**The Problem:** You have a camera, but you don't know its focal length, principal point, or distortion.
+**The Solution:** Show the camera a known object (a checkerboard) from different angles.
+
+### 1. The Setup: The "Z=0" Trick
+Zhang’s Method is the industry standard (used in OpenCV/MATLAB).
+*   **The Pattern:** A flat checkerboard. Why? Because the corners are easy for computer algorithms to find with sub-pixel accuracy.
+*   **The World Origin:** We define the **World Coordinate System** $(0,0,0)$ as the top-left corner of the checkerboard.
+*   **The Simplification:** Because the board is flat, every point on that board has a **$Z$ coordinate of 0**. 
+
+### 2. The Math: From Projection to Homography ($H$)
+Normally, the mapping is:
+$$\begin{pmatrix} x \\ y \\ 1 \end{pmatrix} = K \begin{bmatrix} r_1 & r_2 & r_3 & t \end{bmatrix} \begin{pmatrix} X \\ Y \\ Z \\ 1 \end{pmatrix}$$
+But since **$Z = 0$**, the third column of the rotation matrix ($r_3$) is multiplied by zero and disappears!
+*   **The Homography ($H$):** We are left with a $3 \times 3$ matrix called a **Homography**.
+    $$H = K \begin{bmatrix} r_1 & r_2 & t \end{bmatrix}$$
+*   **What $H$ does:** it maps the points on the flat checkerboard plane directly to the points on the flat sensor plane.
+
+### 3. Solving for $K$ (The Requirements)
+To solve for the internal parameters ($K$), we use the properties of rotation matrices (that $r_1$ and $r_2$ are perpendicular and have a length of 1).
+*   **Points per image:** You need at least **4 points** per plane to calculate $H$.
+*   **The $B$ Matrix:** We define a new matrix $B$ (which contains the info for $K$). $B$ has **6 degrees of freedom** (6 unknowns).
+*   **Equations per image:** Each checkerboard image provides **2 equations** to solve for $B$.
+*   **Minimum Images:** To solve for 6 unknowns using 2 equations per image, you need **at least 3 different views** of the checkerboard.
+*   **Final Step:** Solve the system of equations ($Vb = 0$) to extract the calibration matrix $K$.
+
+---
+
+# Camera Localization (P3P)
+**The Problem:** You already know the camera's "guts" ($K$), and you see 3 known points in the world. **Where is the camera?**
+**The Solution:** The **Perspective-3-Point (P3P)** algorithm.
+
+### 1. How it works
+P3P uses the geometry of triangles. Imagine the camera is the tip of a pyramid, and the 3 points on the ground are the base.
+*   **Inputs:** The 3D coordinates of 3 points ($A, B, C$) and their 2D pixel positions.
+*   **The Equation:** It creates a **fourth-degree polynomial equation**. 
+*   **The Result:** Because it is a 4th-degree equation, you can get up to **4 possible mathematical solutions** (4 places the camera *could* be).
+
+### 2. Disambiguation (The 4th Point)
+Since we can't be in four places at once, we need a tie-breaker.
+*   **The 4th Point:** By checking a 4th point, we see which of the 4 solutions correctly predicts where that 4th point should appear. Only one solution will match.
+
+---
+
+# Real-World Examples
+
+*   **Checkerboard Calibration:** This is done once in the factory for your smartphone camera or by a roboticist before a mission. If you drop your camera and the lens shifts, you have to re-calibrate using Zhang's method.
+*   **P3P in AR (Pokemon Go / IKEA App):** When you point your phone at the floor, the app looks for "feature points" it recognizes. It uses a version of P3P to figure out exactly where your phone is tilted so it can place a 3D chair on the floor accurately.
+*   **Drones:** A drone landing on a pad with specific markers uses P3P to calculate its distance and angle to the pad to ensure a soft landing.
+
+---
+
+# "Gotchas"
+
+**Q: Why don't we just use one image for calibration?**
+*   **Answer:** One image only gives us 2 equations. The matrix $B$ (which leads us to $K$) has 6 unknowns. Mathematically, the system is "underdetermined"—there are infinite solutions. You need at least 3 views to lock down one single answer.
+
+**Q: Why must the checkerboard be moved to different angles?**
+*   **Answer:** If you just move the checkerboard back and forth (staying parallel to the camera), you aren't providing new geometric information about the focal length or principal point. You need **rotation** (tilt) to help the math distinguish between "zoom" and "distance."
+
+**Q: What happens in P3P if the 3 points are in a straight line (collinear)?**
+*   **Answer:** The math fails. P3P requires the points to form a triangle. If they are in a line, the "pyramid" collapses, and you can't calculate the camera's position.
+
+**Q: Why use a checkerboard and not a circle grid?**
+*   **Answer:** Checkerboard corners are sharp and mathematically easy to define. However, under heavy motion blur, circles are sometimes better because the "center of gravity" of a blurry circle is easier to find than a blurry corner.
+
+**Q: In Zhang's method, what happens to the 3rd column of the Rotation matrix?**
+*   **Answer:** It is discarded during the Homography calculation because $Z=0$. However, once we find $K$ and $H$, we can "reconstruct" that 3rd column because we know $r_3$ must be perpendicular to $r_1$ and $r_2$ (Cross Product!).
