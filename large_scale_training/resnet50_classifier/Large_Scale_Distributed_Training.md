@@ -12,6 +12,12 @@ The backbone is a custom `ResNet50` (`model_resnet50.py`), not a torchvision pre
 
 In v1, the **first** 1×1 conv in each bottleneck carries the stride-2 downsample. In v1.5, **the 3×3 conv** does. This is a small architectural choice from Microsoft's recipe that gives roughly **+0.5% top-1** at no extra cost. It matters because if you compare your numbers against v1 baselines, there is already a built-in gap.
 
+Most significant improvements are often observed when:
+
+1. **Small subjects:** The main object is small in the frame. v1’s early 1×1 stride can “skip” fine detail; v1.5’s 3×3 stride uses a slightly larger neighborhood before downsampling.
+2. **Fine texture:** Classes where fur, fabric, scans, etc. matter; the 3×3 path can capture local structure a bit better before resolution drops.
+3. **Cluttered scenes:** Multiple objects or busy backgrounds; sharper boundaries before pooling can help separation.
+
 ### Kaiming He initialization
 
 All conv layers use `kaiming_normal_(mode="fan_out", nonlinearity="relu")`. BN layers are initialized with `weight=1`, `bias=0`. This is the standard setup that keeps variance stable through deep ReLU networks.
@@ -21,6 +27,23 @@ All conv layers use `kaiming_normal_(mode="fan_out", nonlinearity="relu")`. BN l
 After the general init, the code walks every `Bottleneck` block and sets `bn3.weight = 0` — the **last** BN in the residual branch. The effect: at initialization, each residual block contributes **nothing** to the output (the residual path multiplies by zero), so the network behaves like a shallower model early in training and deepens gradually as BN gamma grows. This is a well-known trick from the original ResNet paper's appendix and Facebook's large-batch training work. It stabilizes early training, especially at high learning rates.
 
 The code also zeros the BN gamma inside **downsample** paths. This is more aggressive than some recipes — worth knowing if you ever see divergence on the first epoch.
+
+Why zero-gamma matters:
+
+1. **The “shallow model” effect**  
+   With residual branch BN gamma at zero, each block is near an identity map: the signal mostly flows through shortcuts from input toward the head, with little contribution from the residual conv stack at step zero.  
+   **Effect:** Early training looks like a much shallower network (stem, e.g. `7×7`, plus head).  
+   **Benefit:** The optimizer gets a simpler, more stable gradient landscape at the start.
+
+2. **Stability at high learning rates**  
+   Very large global batches often need large LRs (e.g. `LR = 1.0` or higher).  
+   **Risk:** Deep random nets can amplify noise and diverge early.  
+   **Zero-gamma:** Starts closer to identity; `gamma` grows later, gradually “unfolding” depth once the loss landscape is calmer.
+
+3. **Impact on training**  
+   **Top-1:** Often a small gain (on the order of 0.2%–0.3%).  
+   **Warm-up:** May shorten required warm-up.  
+   **Convergence:** Can help avoid pathological early gradients in very deep stacks.
 
 ---
 
